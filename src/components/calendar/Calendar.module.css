@@ -38,7 +38,7 @@
     display: flex;
     flex-direction: column;
 
-    --hour_height: 4em;
+    --min_hour_height: 4em;
 
     height: 100vh;
     /* testing */
@@ -74,7 +74,7 @@
     flex: 1 0;
     border-top: 1px solid #444;
     text-align: end;
-    min-height: var(--hour_height);
+    min-height: var(--min_hour_height);
 }
 
 .cal_daily>.body>.day,
@@ -88,7 +88,7 @@
 
 .cal_daily>.body>.day {
     border: 1px solid #333;
-    min-height: calc(24 * var(--hour_height));
+    min-height: calc(24 * var(--min_hour_height));
     position: relative;
 }
 
@@ -99,8 +99,8 @@
     position: absolute;
     left: calc(100% * var(--track_i) / var(--track_n));
     width: calc(100% / var(--track_n));
-    top: calc(var(--hour_height) * var(--start_hrs));
-    height: calc(var(--hour_height) * var(--len_hrs));
+    top: calc(100% / 24 * var(--start_hrs));
+    height: calc(100% / 24 * var(--len_hrs));
 }
 
 .cal_daily>.body>.day>.event.cut_start {
