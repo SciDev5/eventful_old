@@ -1,6 +1,6 @@
-import { Timerange } from "@/common/ty_shared";
+import { Event, EventId, Group, Timerange } from "@/common/ty_shared";
 import { Color } from "../../common/util/color";
-import { EventInfo, EventSchedule, GroupInfo, HostInfo, LocationInfo, TagInfo } from "../schedule";
+import { make_group_parts } from "./group_maker";
 
 export type TRexAPIResponse = {
     /** The title of the current experience, such as "REX 2023" */
@@ -37,66 +37,38 @@ export async function fetch_trex(): Promise<TRexAPIResponse> {
     return (await (await fetch("https://rex.mit.edu/api.json")).json()) as TRexAPIResponse
 }
 
-export function trex_to_schedule(id: string, trex: TRexAPIResponse): EventSchedule {
-    const locations_lookup = new Map<string, number>()
-    const locations: LocationInfo[] = []
-    const groups_lookup = new Map<string, number>()
-    const groups: GroupInfo[] = []
-    const hosts_lookup = new Map<string, number>()
-    const hosts: HostInfo[] = trex.dorms.map((name, i) => {
-        hosts_lookup.set(name, i)
-        const color = Color.from_hex(trex.colors.dorms[name]) ?? new Color(0.5, 0.5, 0.5)
-        return { name, color }
-    })
-    const tags_lookup = new Map<string, number>()
-    const tags: TagInfo[] = trex.tags.map((name, i) => {
-        tags_lookup.set(name, i)
-        const color = Color.from_hex(trex.colors.tags[name]) ?? new Color(0.5, 0.5, 0.5)
-        return { name, color }
-    })
+export function trex_to_schedule(id: string, trex: TRexAPIResponse): Group {
+    const { events, add_event, get_host, get_location, get_tag, hosts, locations, tags } = make_group_parts()
 
-    const events = trex.events
-        // .filter(({ end }) => (new Date(end).getTime() < new Date("2024-08-24T20:51:00-04:00").getTime()))
-        .map(({ name, description, start, end, ...v }) => {
-            if (!locations_lookup.has(v.location)) {
-                const i = locations.length
-                locations.push({ name: v.location })
-                locations_lookup.set(v.location, i)
-            }
-            const location = locations_lookup.get(v.location)!
-            const hosts = v.dorm.map(dorm => hosts_lookup.get(dorm)!)
-            const tags = v.tags.map(tag => tags_lookup.get(tag)!)
-            let group = null
-            if (v.group != null) {
-                if (!groups_lookup.has(v.group)) {
-                    const i = groups.length
-                    groups.push({ name: v.group, associated_dorms: new Set() })
-                    groups_lookup.set(v.group, i)
-                }
-                group = groups_lookup.get(v.group)!
-                for (const host of hosts) {
-                    groups[group].associated_dorms.add(host)
-                }
-            }
-            return {
-                name,
-                description,
-                time: new Timerange(new Date(start), new Date(end)),
-                hosts,
-                location,
-                tags,
-                group,
-            } satisfies EventInfo
-        })
+
+    for (const tag in trex.colors.tags) {
+        tags[get_tag(tag)].color = Color.from_hex(trex.colors.tags[tag])
+    }
+    for (const host in trex.colors.dorms) {
+        hosts[get_host(host)].color = Color.from_hex(trex.colors.dorms[host])
+    }
+    trex.events.map((v, id) => {
+        return {
+            id,
+            name: v.name,
+            description: v.description,
+            host: v.dorm.map(get_host),
+            location: [get_location(v.location)],
+            tags: v.tags.map(get_tag),
+            overrides: [],
+            time: {
+                Once: { at: new Timerange(new Date(v.start), new Date(v.end)) }
+            },
+        } satisfies Event
+    }).forEach(add_event)
 
     return {
-        id,
+        id: 0,
+        owner: 0,
         name: trex.name,
-        time: new Timerange(new Date(trex.start), new Date(trex.end)),
         events,
         hosts,
         locations,
-        groups,
         tags,
     }
 }

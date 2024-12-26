@@ -1,10 +1,11 @@
-import { EventSchedule } from "@/data/schedule";
 import { FilterBar, Toggle, NameFilter, TaglikeFilter, useComposedFilters } from "../filter/FilterBar";
 import { EventTimeline, FavoriteId } from "./EventTimeline";
 import styles from "./EventViewer.module.css"
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { css_vars } from "@/util/css";
 import { clamp } from "@/common/util/math";
+import { Group } from "@/common/ty_shared";
+import { eventtime_max_extent } from "@/common/event_management";
 
 
 const FAVORITES_LOCALHOST_ID = "fav_"
@@ -31,13 +32,15 @@ export function EventViewerDataMissing({ failed }: { failed: string | false }) {
     )
 }
 
-export function EventViewer({ schedule }: { schedule: EventSchedule }) {
-    const [color_from_hosts, set_color_from_hosts] = useState(true)
+export function EventViewer({ schedule }: { schedule: Set<Group> }) {
+    const [color_from_hosts, set_color_from_hosts] = useState([...schedule.values()].every(v => v.hosts.some(v => v.color != null)))
     const [show_only_favorites, set_show_only_favorites] = useState(false)
     const [event_filter, set_host_filter, set_tag_filter, set_name_filter, set_favorites_filter] = useComposedFilters(4)
     const [favorites, _set_favorites] = useState<FavoriteId[]>([])
     useEffect(() => {
-        _set_favorites(load_favorites(schedule.id))
+        console.warn("TODO: fix favorites");
+
+        _set_favorites(load_favorites("abc"))
     }, [schedule])
 
     const [em_per_hr, set_em_per_hr] = useState(8)
@@ -55,6 +58,8 @@ export function EventViewer({ schedule }: { schedule: EventSchedule }) {
         }, 0);
     }
 
+    const time_bounds = useMemo(() => [...schedule.values()].flatMap(v => [...v.events.values()]).map(v => eventtime_max_extent(v.time)).reduce((a, b) => a.merge(b)), [schedule])
+
     return (
         <div className={styles.root_container} ref={container_ref} >
             <FilterBar>
@@ -63,13 +68,18 @@ export function EventViewer({ schedule }: { schedule: EventSchedule }) {
                     set_filter={set_name_filter}
                 />
                 <TaglikeFilter
-                    options={schedule.hosts}
-                    property="hosts"
+                    options={useMemo(() => [...schedule.values()].flatMap(v => v.hosts), [schedule])}
+                    property="host"
                     set_filter={set_host_filter}
                 />
                 <TaglikeFilter
-                    options={schedule.tags}
+                    options={useMemo(() => [...schedule.values()].flatMap(v => v.tags), [schedule])}
                     property="tags"
+                    set_filter={set_tag_filter}
+                />
+                <TaglikeFilter
+                    options={useMemo(() => [...schedule.values()].flatMap(v => v.locations), [schedule])}
+                    property="location"
                     set_filter={set_tag_filter}
                 />
                 <Toggle
@@ -96,7 +106,7 @@ export function EventViewer({ schedule }: { schedule: EventSchedule }) {
                     color_from_hosts={color_from_hosts}
                     em_per_hr="inherit"
                     event_filter={event_filter}
-                    timerange={useMemo(() => schedule.events.map(v => v.time).reduce((a, b) => a.merge(b)).round_outward(60 * 60 * 1000), [schedule])}
+                    timerange={useMemo(() => time_bounds.round_outward(60 * 60 * 1000), [time_bounds])}
                     time_scroll_ref={time_scroll_ref}
                     favorites={favorites}
                 />
@@ -106,11 +116,11 @@ export function EventViewer({ schedule }: { schedule: EventSchedule }) {
                 <button onClick={() => set_em_per_hr_safe(em_per_hr / 2)}>{"-"}</button>
             </div>
             <div className={styles.info} >
-                {schedule.name}
+                {[...schedule.values()].map(s => s.name).join(", ")}
                 <br />
-                {schedule.time.start.toLocaleDateString("zh", { year: "numeric", month: "2-digit", day: "2-digit" }).replaceAll(/\//g, "-")}
+                {time_bounds.start.toLocaleDateString("zh", { year: "numeric", month: "2-digit", day: "2-digit" }).replaceAll(/\//g, "-")}
                 {" -> "}
-                {new Date(schedule.time.end.getTime() - 1).toLocaleDateString("zh", { year: "numeric", month: "2-digit", day: "2-digit" }).replaceAll(/\//g, "-")}
+                {new Date(time_bounds.end.getTime() - 1).toLocaleDateString("zh", { year: "numeric", month: "2-digit", day: "2-digit" }).replaceAll(/\//g, "-")}
             </div>
         </div>
     );

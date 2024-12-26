@@ -1,10 +1,12 @@
-import { EventInfo, EventSchedule, HostInfo, TagInfo } from "@/data/schedule"
 import { ChangeEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { Chip } from "../chip/Chip"
 import styles from "./FilterBar.module.css"
 import { css_vars } from "@/util/css"
+import { EventInstance } from "@/common/event_management"
+import { Group, Label } from "@/common/ty_shared"
+import { Color } from "@/common/util/color"
 
-type EventFilter = (event: EventInfo) => boolean
+export type EventFilter = (event: EventInstance) => boolean
 
 export function FilterBar({ children }: { children: JSX.Element | JSX.Element[] }) {
     return (<div className={styles.filter_bar}>
@@ -13,11 +15,11 @@ export function FilterBar({ children }: { children: JSX.Element | JSX.Element[] 
 }
 
 export function useComposedFilters(n: number): [EventFilter, ...((filter: EventFilter) => void)[]] {
-    const filters = useMemo(() => new Array(n).fill(0).map(() => (event: EventInfo) => true as boolean), [n])
+    const filters = useMemo(() => new Array(n).fill(0).map(() => (event: EventInstance) => true as boolean), [n])
     const [update_state, update] = useState(0)
 
     return [
-        useMemo(() => { update_state; return (event: EventInfo) => filters.every(filter => filter(event)) }, [filters, update_state]),
+        useMemo(() => { update_state; return (event: EventInstance) => filters.every(filter => filter(event)) }, [filters, update_state]),
         ...useMemo(() => filters.map((_, i) => (filter: EventFilter) => {
             filters[i] = filter
             update(Math.random)
@@ -26,8 +28,8 @@ export function useComposedFilters(n: number): [EventFilter, ...((filter: EventF
 }
 
 export function TaglikeFilter({ set_filter, property, options }: {
-    property: { [k in keyof EventInfo]: EventInfo[k] extends number[] ? k : never }[keyof EventInfo],
-    options: HostInfo[] | TagInfo[],
+    property: { [k in keyof EventInstance]: EventInstance[k] extends Label[] ? k : never }[keyof EventInstance],
+    options: Label[],
     set_filter: (filter: EventFilter) => void,
 }) {
     const [checked, set_checked] = useState(() => options.map(() => false))
@@ -40,7 +42,7 @@ export function TaglikeFilter({ set_filter, property, options }: {
                 set_filter(_ => true)
             } else {
                 const required_tags = checked.map((v, i) => [v, i] satisfies [any, any]).filter(([v,]) => v).map(([, i]) => i)
-                set_filter(event => required_tags.some(tag => event[property].includes(tag)))
+                set_filter(event => required_tags.some(tag => event[property].includes(options[tag]))) // depends on reference equality
             }
         }, 10)
         return () => clearTimeout(tid)
@@ -48,6 +50,8 @@ export function TaglikeFilter({ set_filter, property, options }: {
 
 
     const [focused_outer, set_focused_outer] = useState(false)
+
+    const DEFAULT_GREY = Color.from_hex("#77f")!
 
     return (
         <div
@@ -70,9 +74,9 @@ export function TaglikeFilter({ set_filter, property, options }: {
                             {<div className={styles.label}>{property}</div>}
                             <div className={styles.scroller}>
                                 {
-                                    checked.map((v, i) => v ? [options[i], i] satisfies [any, any] : null).filter(v => v != null).map(([{ name, color }, id]) => (
-                                        <Chip color={color} key={id}>
-                                            {name}
+                                    checked.map((v, i) => v ? [options[i], i] satisfies [any, any] : null).filter(v => v != null).map(([{ title, color }, id]) => (
+                                        <Chip color={(color ?? DEFAULT_GREY)} key={id}>
+                                            {title}
                                         </Chip>
                                     ))
                                 }
@@ -86,17 +90,17 @@ export function TaglikeFilter({ set_filter, property, options }: {
                 tabIndex={-1}
             >
                 {
-                    options.map(({ color, name }, id) => (
+                    options.map(({ color, title }, id) => (
                         <label
                             style={css_vars({
-                                text_color: color.contrasting_text_color().to_hex(),
-                                color: color.to_hex(0.75),
+                                text_color: (color ?? DEFAULT_GREY).contrasting_text_color().to_hex(),
+                                color: (color ?? DEFAULT_GREY).to_hex(0.75),
                             })}
                             className={styles.filter_taglike_entry}
                             htmlFor={label_id + "_" + id}
                             key={id}
                         >
-                            {name}
+                            {title}
                             <input
                                 id={label_id + "_" + id}
                                 type="checkbox"
@@ -119,33 +123,37 @@ export function TaglikeFilter({ set_filter, property, options }: {
 
 export function NameFilter({ set_filter, schedule }: {
     set_filter: (filter: EventFilter) => void,
-    schedule: EventSchedule,
+    schedule: Set<Group>,
 }) {
-    const [name, set_name] = useState("")
+    const [query, set_query] = useState("")
     const id = useId()
 
     useEffect(() => {
         const tid = setTimeout(() => {
-            const name_ = name.trim()
-            if (name_ === "") {
+            const norm = (s: string) => s.toLowerCase().replaceAll(/\W+/g, " ").trim()
+            const query_norm = norm(query)
+            if (query_norm === "") {
                 set_filter(_ => true)
             } else {
-                const name_norm = name_.toLowerCase().replaceAll(/\s+/g, " ")
-                set_filter(event => event.name.toLowerCase().replaceAll(/\s+/g, " ").includes(name_norm) || event.group != null && schedule.groups[event.group].name.toLowerCase().replaceAll(/\s+/g, " ").includes(name_norm))
+                set_filter(event => (
+                    (norm(event.name).includes(query_norm))
+                    || ([...event.location, ...event.tags, ...event.host]).some(e => norm(e.title).includes(query_norm))
+                    || norm(event.description).includes(query_norm)
+                ))
             }
-        }, 10)
+        }, 50)
         return () => clearTimeout(tid)
 
-    }, [set_filter, name, schedule])
+    }, [set_filter, query, schedule])
 
     return (<label className={styles.filter_searchbar} htmlFor={id}>
         <span>
             search
         </span>
         <input
-            value={name}
+            value={query}
             id={id}
-            onChange={useCallback((e: ChangeEvent<HTMLInputElement>) => set_name(e.currentTarget.value), [set_name])}
+            onChange={useCallback((e: ChangeEvent<HTMLInputElement>) => set_query(e.currentTarget.value), [set_query])}
         />
     </label>)
 }

@@ -10,16 +10,7 @@ import { css_vars } from "@/util/css"
 import { EventInstance, Eventslist } from "@/common/event_management"
 import { useChangedValue, useMappedSet } from "@/util/use"
 
-export function TESTCAL({ groups }: { groups: Set<Group> }) {
-    const { zero_weekday } = useSettings()
-    const d = date_to_day(new Date())
-    return (
-        // <CalendarMonth start={2024 * 12 + 9} />
-        <CalendarDays start={d - day_weekday(d) + zero_weekday} n={7} groups={groups} />
-    )
-}
-
-function CalendarMonth({
+export function CalendarMonth({
     start,
 }: {
     start: month_int,
@@ -87,7 +78,7 @@ function CalendarMonthDay({
 }
 
 
-function CalendarDays({
+export function CalendarDays({
     start, n,
     groups,
 }: {
@@ -204,7 +195,7 @@ function CalendarDayEvent({
 }
 
 
-function useMemoizedEventslists(groups: Set<Group>, timerange: Timerange): Eventslist[] {
+export function useMemoizedEventslists(groups: Set<Group>, timerange: Timerange): Eventslist[] {
     return useMappedSet(
         groups,
         useCallback(group => new Eventslist(group, timerange), [timerange]),

@@ -1,6 +1,5 @@
 "use client";
 
-import { EventInfo, EventSchedule } from "@/data/schedule";
 import { Attributes, Fragment, RefObject, useCallback, useEffect, useMemo, useState } from "react";
 import styles from "./EventTimeline.module.css";
 import { css_vars } from "@/util/css";
@@ -8,25 +7,35 @@ import { swap } from "@/common/util/arr";
 import { Chip } from "../chip/Chip";
 import { Color } from "@/common/util/color";
 import { EventModal, EventModalShower } from "./EventModal";
-import { Timerange } from "@/common/ty_shared";
+import { Group, Label, Timerange } from "@/common/ty_shared";
+import { useMemoizedEventslists } from "../calendar/Calendar";
+import { useChangedValue } from "@/util/use";
+import { day_to_date } from "@/common/util/datetime";
+import { EventFilter } from "../filter/FilterBar";
+import { EventInstance } from "@/common/event_management";
 
 export type FavoriteId = string
 
 export function EventTimeline({ event_schedule, timerange, em_per_hr, event_filter, color_from_hosts, time_scroll_ref, favorites }: {
-    event_schedule: EventSchedule,
+    event_schedule: Set<Group>,
     timerange: Timerange,
     em_per_hr: number | "inherit",
-    event_filter: (event: EventInfo) => boolean,
+    event_filter: EventFilter,
     favorites: FavoriteId[],
     color_from_hosts?: boolean,
     time_scroll_ref?: RefObject<HTMLDivElement>,
 }) {
     console.log(event_schedule, timerange, em_per_hr, event_filter, color_from_hosts);
 
+    const events = useMemoizedEventslists(
+        event_schedule,
+        timerange,
+    )
+
     const tracks = useMemo(
         () => assemble_tracks(
             timerange,
-            event_schedule.events.filter(event_filter)
+            events.flatMap(v => v.all()).filter(event_filter)
         ).map(tr => tr.map(ent => ({ ...ent, data: { event: ent.data } }))),
         [timerange, event_schedule, event_filter],
     )
@@ -42,24 +51,23 @@ export function EventTimeline({ event_schedule, timerange, em_per_hr, event_filt
     )
 
     const modal_control = useMemo(() => ({
-        set_modal: (e: EventInfo | null) => {
+        set_modal: (e: EventInstance | null) => {
             console.warn("failed to set modal_control.set_modal in time")
         }
     }), [])
 
 
     const passthrough = useMemo(() => ({
-        schedule: event_schedule,
         color_from_hosts: color_from_hosts ?? false,
         modal_control,
-    }), [event_schedule, color_from_hosts, modal_control])
+    }), [color_from_hosts, modal_control])
     return (
         <div
             className={styles.timeline_time_scroll}
             style={css_vars({ length_hours: timerange.length_hours, ...em_per_hr !== "inherit" ? { em_per_hr } : {} })}
             ref={time_scroll_ref}
         >
-            <EventModalShower control_ref={modal_control} schedule={event_schedule} favorites={favorites} />
+            <EventModalShower control_ref={modal_control} favorites={favorites} />
             <div className={styles.timeline_space_scroll_container}>
                 <TimelineTrack
                     track_data={timetrack}
@@ -117,23 +125,26 @@ function TimelineTrackTime({ date }: { date: Date }) {
         </div>
     </div>)
 }
-function ColorHeader({ ids, lut }: { ids: number[], lut: { color: Color }[] }) {
+function ColorHeader({ labels }: { labels: Label[] }) {
+    const mapped_labels = labels.flatMap(label => label.color != null ? [label.color.to_hex()] : []).map((color, i) => (
+        <div style={css_vars({ color })} key={i} />
+    ))
     return (<div className={styles.colors}>
-        {ids.map(id => (
-            <div style={css_vars({ color: lut[id].color.to_hex() })} key={id} />
-        ))}
-        {ids.length === 0 && <div className={styles.no_color} />}
+        {mapped_labels}
+        {mapped_labels.length === 0 && <div className={styles.no_color} />}
     </div>)
 }
-function TimelineTrackEvent({ event, schedule, color_from_hosts, modal_control }: { event: EventInfo, schedule: EventSchedule, color_from_hosts: boolean, modal_control: { set_modal: (ev: EventInfo | null) => void } }) {
+function TimelineTrackEvent({ event, color_from_hosts, modal_control }: { event: EventInstance, color_from_hosts: boolean, modal_control: { set_modal: (ev: EventInstance | null) => void } }) {
 
     const summon_modal = useCallback(() => modal_control.set_modal(event), [event, modal_control])
+
+    const DEFAULT_GREY = new Color(0.5, 0.5, 0.5)
 
     return (<div className={styles.event} onClick={summon_modal}>
         {
             color_from_hosts
-                ? <ColorHeader ids={event.hosts} lut={schedule.hosts} />
-                : <ColorHeader ids={event.tags} lut={schedule.tags} />
+                ? <ColorHeader labels={event.host} />
+                : <ColorHeader labels={event.tags} />
         }
         <div className={styles.event_name}>
             {event.name}
@@ -147,11 +158,11 @@ function TimelineTrackEvent({ event, schedule, color_from_hosts, modal_control }
                 <span className={styles.line} />
                 <span>{event.time.end.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span>
             </div>
-            <div className={styles.event_host}>{event.hosts.map(host_id => (<span style={css_vars({ host_color: schedule.hosts[host_id].color.to_hex() })} key={host_id}>{schedule.hosts[host_id].name}</span>))}</div>
+            <div className={styles.event_host}>{event.host.map(host => (<span style={css_vars({ host_color: (host.color ?? DEFAULT_GREY).to_hex() })} key={host.title}>{host.title}</span>))}</div>
             {/* {event.group && <div className={styles.event_group}>{schedule.groups[event.group].name}</div>} */}
-            <div className={styles.event_location}>{schedule.locations[event.location].name}</div>
+            <div className={styles.event_location}>{event.location.map(v => v.title).join(", ")}</div>
             <div className={styles.event_tags}>
-                {event.tags.map(tag_id => (<Chip color={schedule.tags[tag_id].color} key={tag_id}>{schedule.tags[tag_id].name}</Chip>))}
+                {event.tags.map(tag => (<Chip color={tag.color ?? DEFAULT_GREY} key={tag.title}>{tag.title}</Chip>))}
             </div>
         </div>
     </div>)
