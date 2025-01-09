@@ -10,7 +10,7 @@ import { css_vars } from "@/util/css"
 import { EventInstance, Eventslist } from "@/common/event_management"
 import { useChangedValue, useMappedSet } from "@/util/use"
 import { EventFilter } from "../filter/FilterBar"
-import { assemble_tracks, EventSelection, useEventsDuringDay } from "../events/EventSelection"
+import { assemble_tracks, EventSelection, useEventsDuringDay } from "./EventSelection"
 
 export function CalendarMonth({
     start,
