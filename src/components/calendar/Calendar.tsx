@@ -9,6 +9,8 @@ import { useSettings } from "../settings/settings"
 import { css_vars } from "@/util/css"
 import { EventInstance, Eventslist } from "@/common/event_management"
 import { useChangedValue, useMappedSet } from "@/util/use"
+import { EventFilter } from "../filter/FilterBar"
+import { assemble_tracks, EventSelection, useEventsDuringDay } from "../events/EventSelection"
 
 export function CalendarMonth({
     start,
@@ -80,17 +82,14 @@ function CalendarMonthDay({
 
 export function CalendarDays({
     start, n,
-    groups,
+    sel,
 }: {
     start: day_int,
     n: uint,
-    groups: Set<Group>,
+    sel: EventSelection,
 }) {
-    const events = useMemoizedEventslists(
-        groups,
-        useChangedValue(new Timerange(day_to_date(start - 2), day_to_date(start + n + 2)), Timerange.equals),
-    )
-    console.log(events);
+    const day_events = useEventsDuringDay(sel)
+    console.log(day_events);
 
 
     const today = date_to_day(new Date())
@@ -129,7 +128,7 @@ export function CalendarDays({
                         ].join(" ")}
                         key={day_i}
                     >
-                        <CalendarDaysDayContent day_i={day_i} events={events} />
+                        <CalendarDaysDayContent day_i={day_i} day_events={day_events} />
                     </div>
                 ))}
             </div>
@@ -138,22 +137,29 @@ export function CalendarDays({
 }
 function CalendarDaysDayContent({
     day_i,
-    events,
+    day_events,
 }: {
     day_i: day_int,
-    events: Eventslist[],
+    day_events: (day: day_int) => EventInstance[],
 }) {
     const ms_day_start = day_to_date(day_i).getTime()
-    const day_events = events.flatMap(events => events.starts_or_ends_during_day(day_i))
+    const events = useMemo(() => day_events(day_i), [day_events, day_i])
     // console.log(day_i, day_events, events);
 
-    const assembled = assemble_tracks(ms_day_start, day_events.map(event_instance => ({ time: event_instance.time, event_instance })))
+    const assembled = assemble_tracks(events)
+        .flatMap((v, track_i) => v.map(({ track_n, event }) => ({
+            track_i,
+            track_n,
+            event_instance: event,
+            ms_start: event.time.start_ms - ms_day_start,
+            ms_end: event.time.end_ms - ms_day_start,
+        })))
 
     return (
         <>
-            {assembled.map(({ track_i, track_n, ms_start, ms_end, event_instance }, i) => (
+            {assembled.map((data, i) => (
                 <CalendarDayEvent
-                    {...{ ms_start, ms_end, track_i, track_n, events, event_instance }}
+                    {...data}
                     key={i}
                 />
             ))}
@@ -194,85 +200,3 @@ function CalendarDayEvent({
 
 }
 
-
-export function useMemoizedEventslists(groups: Set<Group>, timerange: Timerange): Eventslist[] {
-    return useMappedSet(
-        groups,
-        useCallback(group => new Eventslist(group, timerange), [timerange]),
-    )
-}
-
-function assemble_tracks<T>(
-    ms_day_start: uint,
-    events: {
-        time: Timerange,
-        event_instance: T,
-    }[],
-): {
-    track_n: uint,
-    track_i: uint,
-    ms_start: ms_int,
-    ms_end: ms_int,
-    event_instance: T,
-}[] {
-    const tracks: ({ time: Timerange, event_instance: T }[])[] = []
-    const events_ordered: ({ track_i: uint, event: { time: Timerange, event_instance: T } })[] = []
-    for (const event_instance of events.toSorted((a, b) => a.time.end.getTime() - b.time.end.getTime())) {
-        let track_i = tracks.findIndex(track => !track[track.length - 1].time.overlaps(event_instance.time))
-        if (track_i === -1) track_i = (() => {
-            const new_track: { time: Timerange, event_instance: T }[] = []
-            tracks.push(new_track)
-            return tracks.length - 1
-        })()
-
-        tracks[track_i].push(event_instance)
-        events_ordered.push({ track_i, event: event_instance })
-    }
-
-    if (events_ordered.length === 0) {
-        return []
-    }
-
-
-    const events_out = []
-    let streak_bounds: Timerange = events_ordered[0].event.time
-    let max_track_i = events_ordered[0].track_i
-    const events_streak = [{ track_i: 0, ...events_ordered[0].event }]
-    for (const { track_i, event: { time, event_instance } } of events_ordered.slice(1)) {
-        if (streak_bounds.overlaps(time)) {
-            events_streak.push({ track_i, time, event_instance })
-            if (track_i > max_track_i) {
-                max_track_i = track_i
-            }
-            streak_bounds = streak_bounds.merge(time)
-        } else {
-            events_out.push(...events_streak.map(({
-                event_instance,
-                time,
-                track_i,
-            }) => ({
-                ms_start: time.start_ms - ms_day_start,
-                ms_end: time.end_ms - ms_day_start,
-                track_i,
-                track_n: max_track_i + 1,
-                event_instance,
-            })))
-            events_streak.length = 0
-            events_streak.push({ track_i, time, event_instance })
-            max_track_i = track_i
-            streak_bounds = time
-        }
-    }
-    events_out.push(...events_streak.map(({
-        event_instance,
-        time,
-        track_i,
-    }) => ({
-        ms_start: time.start_ms - ms_day_start,
-        ms_end: time.end_ms - ms_day_start,
-        track_i,
-        track_n: max_track_i + 1,
-        event_instance,
-    })))
-    return events_out
-}

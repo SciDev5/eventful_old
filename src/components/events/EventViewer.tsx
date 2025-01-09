@@ -1,11 +1,12 @@
 import { FilterBar, Toggle, NameFilter, TaglikeFilter, useComposedFilters } from "../filter/FilterBar";
 import { EventTimeline, FavoriteId } from "./EventTimeline";
 import styles from "./EventViewer.module.css"
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { css_vars } from "@/util/css";
 import { clamp } from "@/common/util/math";
 import { Group } from "@/common/ty_shared";
 import { eventtime_max_extent } from "@/common/event_management";
+import { EventSelection } from "./EventSelection";
 
 
 const FAVORITES_LOCALHOST_ID = "fav_"
@@ -32,8 +33,8 @@ export function EventViewerDataMissing({ failed }: { failed: string | false }) {
     )
 }
 
-export function EventViewer({ schedule }: { schedule: Set<Group> }) {
-    const [color_from_hosts, set_color_from_hosts] = useState([...schedule.values()].every(v => v.hosts.some(v => v.color != null)))
+export function EventViewer({ groups }: { groups: Set<Group> }) {
+    const [color_from_hosts, set_color_from_hosts] = useState([...groups.values()].every(v => v.hosts.some(v => v.color != null)))
     const [show_only_favorites, set_show_only_favorites] = useState(false)
     const [event_filter, set_host_filter, set_tag_filter, set_name_filter, set_favorites_filter] = useComposedFilters(4)
     const [favorites, _set_favorites] = useState<FavoriteId[]>([])
@@ -41,7 +42,7 @@ export function EventViewer({ schedule }: { schedule: Set<Group> }) {
         console.warn("TODO: fix favorites");
 
         _set_favorites(load_favorites("abc"))
-    }, [schedule])
+    }, [groups])
 
     const [em_per_hr, set_em_per_hr] = useState(8)
     const container_ref = useRef<HTMLDivElement>(null)
@@ -58,27 +59,32 @@ export function EventViewer({ schedule }: { schedule: Set<Group> }) {
         }, 0);
     }
 
-    const time_bounds = useMemo(() => [...schedule.values()].flatMap(v => [...v.events.values()]).map(v => eventtime_max_extent(v.time)).reduce((a, b) => a.merge(b)), [schedule])
+    const time_bounds = useMemo(() => [...groups.values()].flatMap(v => [...v.events.values()]).map(v => eventtime_max_extent(v.time)).reduce((a, b) => a.merge(b)), [groups])
+
+    const gen_sel = () => new EventSelection(groups, event_filter, time_bounds.round_outward(60 * 60 * 1000))
+    const sel_: { v: EventSelection | null } = useMemo(() => ({ v: null }), [])
+    const sel = sel_?.v?.replace_if_changed(gen_sel()) ?? gen_sel()
+    sel_.v = sel
 
     return (
         <div className={styles.root_container} ref={container_ref} >
             <FilterBar>
                 <NameFilter
-                    schedule={schedule}
+                    schedule={groups}
                     set_filter={set_name_filter}
                 />
                 <TaglikeFilter
-                    options={useMemo(() => [...schedule.values()].flatMap(v => v.hosts), [schedule])}
+                    options={useMemo(() => [...groups.values()].flatMap(v => v.hosts), [groups])}
                     property="host"
                     set_filter={set_host_filter}
                 />
                 <TaglikeFilter
-                    options={useMemo(() => [...schedule.values()].flatMap(v => v.tags), [schedule])}
+                    options={useMemo(() => [...groups.values()].flatMap(v => v.tags), [groups])}
                     property="tags"
                     set_filter={set_tag_filter}
                 />
                 <TaglikeFilter
-                    options={useMemo(() => [...schedule.values()].flatMap(v => v.locations), [schedule])}
+                    options={useMemo(() => [...groups.values()].flatMap(v => v.locations), [groups])}
                     property="location"
                     set_filter={set_tag_filter}
                 />
@@ -102,11 +108,9 @@ export function EventViewer({ schedule }: { schedule: Set<Group> }) {
             </FilterBar>
             <div className={styles.timeline_container} style={css_vars({ em_per_hr })} >
                 <EventTimeline
-                    event_schedule={schedule}
+                    sel={sel}
                     color_from_hosts={color_from_hosts}
                     em_per_hr="inherit"
-                    event_filter={event_filter}
-                    timerange={useMemo(() => time_bounds.round_outward(60 * 60 * 1000), [time_bounds])}
                     time_scroll_ref={time_scroll_ref}
                     favorites={favorites}
                 />
@@ -116,7 +120,7 @@ export function EventViewer({ schedule }: { schedule: Set<Group> }) {
                 <button onClick={() => set_em_per_hr_safe(em_per_hr / 2)}>{"-"}</button>
             </div>
             <div className={styles.info} >
-                {[...schedule.values()].map(s => s.name).join(", ")}
+                {[...groups.values()].map(s => s.name).join(", ")}
                 <br />
                 {time_bounds.start.toLocaleDateString("zh", { year: "numeric", month: "2-digit", day: "2-digit" }).replaceAll(/\//g, "-")}
                 {" -> "}

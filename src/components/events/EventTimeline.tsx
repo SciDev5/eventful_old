@@ -8,46 +8,47 @@ import { Chip } from "../chip/Chip";
 import { Color } from "@/common/util/color";
 import { EventModal, EventModalShower } from "./EventModal";
 import { Group, Label, Timerange } from "@/common/ty_shared";
-import { useMemoizedEventslists } from "../calendar/Calendar";
 import { useChangedValue } from "@/util/use";
 import { day_to_date } from "@/common/util/datetime";
 import { EventFilter } from "../filter/FilterBar";
 import { EventInstance } from "@/common/event_management";
+import { assemble_tracks, EventSelection, useEventsAll } from "./EventSelection";
 
 export type FavoriteId = string
 
-export function EventTimeline({ event_schedule, timerange, em_per_hr, event_filter, color_from_hosts, time_scroll_ref, favorites }: {
-    event_schedule: Set<Group>,
-    timerange: Timerange,
+export function EventTimeline({ sel, em_per_hr, color_from_hosts, time_scroll_ref, favorites }: {
+    sel: EventSelection
     em_per_hr: number | "inherit",
-    event_filter: EventFilter,
     favorites: FavoriteId[],
     color_from_hosts?: boolean,
     time_scroll_ref?: RefObject<HTMLDivElement>,
 }) {
-    console.log(event_schedule, timerange, em_per_hr, event_filter, color_from_hosts);
+    console.log(sel, em_per_hr, color_from_hosts);
 
-    const events = useMemoizedEventslists(
-        event_schedule,
-        timerange,
-    )
-
+    const events = useEventsAll(sel)
     const tracks = useMemo(
-        () => assemble_tracks(
-            timerange,
-            events.flatMap(v => v.all()).filter(event_filter)
-        ).map(tr => tr.map(ent => ({ ...ent, data: { event: ent.data } }))),
-        [timerange, event_schedule, event_filter],
+        () => {
+            const outer_timelen_ms = sel.timerange.length_ms
+            return assemble_tracks(
+                events
+            )
+                .map(track => track.map((data, i, a) => ({
+                    data: { event: data.event },
+                    width: data.event.time.length_ms / outer_timelen_ms,
+                    spacer: (data.event.time.start.getTime() - (a[i - 1]?.event.time?.end ?? sel.timerange.start).getTime()) / outer_timelen_ms,
+                })) satisfies TrackData<{ event: EventInstance }>)
+        },
+        [events, sel.timerange],
     )
     const timetrack: TrackData<{ date: Date }> = useMemo(
-        () => new Array(Math.ceil(timerange.length_hours)).fill(0)
-            .map((_, i) => new Date((Math.floor(timerange.start.getTime() / 1000 / 60 / 60) + i) * 1000 * 60 * 60))
+        () => new Array(Math.ceil(sel.timerange.length_hours)).fill(0)
+            .map((_, i) => new Date((Math.floor(sel.timerange.start.getTime() / 1000 / 60 / 60) + i) * 1000 * 60 * 60))
             .map(t => ({
                 spacer: 0,
-                width: (Math.min(t.getTime() + 60 * 60 * 1000, timerange.end.getTime()) - Math.max(t.getTime(), timerange.start.getTime())) / timerange.length_ms,
+                width: (Math.min(t.getTime() + 60 * 60 * 1000, sel.timerange.end.getTime()) - Math.max(t.getTime(), sel.timerange.start.getTime())) / sel.timerange.length_ms,
                 data: { date: t },
             })),
-        [timerange]
+        [sel.timerange]
     )
 
     const modal_control = useMemo(() => ({
@@ -64,7 +65,7 @@ export function EventTimeline({ event_schedule, timerange, em_per_hr, event_filt
     return (
         <div
             className={styles.timeline_time_scroll}
-            style={css_vars({ length_hours: timerange.length_hours, ...em_per_hr !== "inherit" ? { em_per_hr } : {} })}
+            style={css_vars({ length_hours: sel.timerange.length_hours, ...em_per_hr !== "inherit" ? { em_per_hr } : {} })}
             ref={time_scroll_ref}
         >
             <EventModalShower control_ref={modal_control} favorites={favorites} />
@@ -75,7 +76,7 @@ export function EventTimeline({ event_schedule, timerange, em_per_hr, event_filt
                     Inner={TimelineTrackTime}
                 />
                 <div className={styles.timeline_space_scroll}>
-                    <TimeIndicator timerange={timerange} />
+                    <TimeIndicator timerange={sel.timerange} />
                     {
                         useMemo(() => tracks.map((t, i) => (
                             <TimelineTrack
@@ -166,27 +167,6 @@ function TimelineTrackEvent({ event, color_from_hosts, modal_control }: { event:
             </div>
         </div>
     </div>)
-}
-
-function assemble_tracks<T extends { time: Timerange }>(
-    timerange_outer: Timerange,
-    events: T[],
-): TrackData<T>[] {
-    const tracks: (T[])[] = []
-    let i = 0
-    for (const event of events.toSorted((a, b) => a.time.end.getTime() - b.time.end.getTime())) {
-        let track = tracks.find(track => !track[track.length - 1].time.overlaps(event.time)) ?? (() => {
-            const new_track: T[] = []
-            tracks.push(new_track)
-            return new_track
-        })()
-        track.push(event)
-        // i += 6700417 * 131071
-        // i %= tracks.length
-        // swap(tracks, 0, i)
-    }
-    const outer_timelen_ms = timerange_outer.length_ms
-    return tracks.map(track => track.map((data, i, a) => ({ data: data, width: data.time.length_ms / outer_timelen_ms, spacer: (data.time.start.getTime() - (a[i - 1]?.time?.end ?? timerange_outer.start).getTime()) / outer_timelen_ms })) satisfies TrackData<T>)
 }
 
 type TrackData<T> = { spacer: number, width: number, data: T }[]
