@@ -1,24 +1,12 @@
-import { Color } from "./util/color";
-import { Simple, Ty, ty_map } from "./serialization";
+import { bool, date, int, obj, or, raw, str, sum, Ty, TypeRepr, TypeReprT, u32, uint } from "./type";
+import { Color } from "./util/Color";
 import { Sum } from "./util/functional";
+import { id } from "./util/id";
 
-export type int = number;
-export type uint = number;
-export type u16 = number;
-export type u32 = number;
-export type u48 = number;
-export type float = number;
-
-export type index = uint;
-const ty_index = Simple.uint
-/// milliseconds [int]
-export type ms_int = int;
-/// milliseconds [uint]
-export type ms_uint = uint;
-
-export type UserId = index;
-export type GroupId = index;
-export type EventId = index;
+export type ms_int = int
+export type ms_uint = uint
+const ms_int = int
+const ms_uint = uint
 
 
 export class Timerange {
@@ -70,45 +58,27 @@ export class Timerange {
     static equals(a: Timerange, b: Timerange): boolean {
         return a.start_ms === b.start_ms && a.end_ms === b.end_ms
     }
+
+    static readonly type = raw({ s: date, e: date }).map(({ s, e }) => new Timerange(s, e), ({ start, end }) => ({ s: start, e: end }))
 }
-export const ty_Timerange: Ty<Timerange, Simple> = ty_map(
-    Simple.obj({
-        at: Simple.int,
-        len: Simple.uint,
-    }),
-    v => ({ at: v.start_ms, len: v.length_ms }),
-    ({ at, len }) => new Timerange(new Date(at), new Date(at + len)),
-    v => v instanceof Timerange,
-)
 
 
-export class ID {
-    private static cache = new Map<u48, ID>()
-    constructor(readonly id: u48) {
-        const existing = ID.cache.get(id)
-        if (existing != null) { return existing }
-        ID.cache.set(id, this)
-    }
-    toString() {
-        return this.id.toString(16).padStart(12, "0")
-    }
-}
-export const ty_ID = ty_map<ID, u48, Simple>(
-    Simple.u48,
-    ({ id }) => id,
-    id => new ID(id),
-    id_obj => id_obj instanceof ID,
-)
-
-
-export interface Label {
-    title: string,
-    color: null | Color,
-}
-export const ty_Label: Ty<Label, Simple> = Simple.obj({
-    title: Simple.string,
-    color: Simple.union(Simple.Color, Simple.null),
+const _Label_ = raw({
+    title: str,
+    color: Color.type.nullable(),
 })
+export interface Label extends TypeReprT<typeof _Label_> { }
+export const Label: Ty<Label, typeof _Label_> = _Label_
+
+const _Labels_ = or([Label, uint]).map(
+    v => uint.is_raw(v) ? v : Label.from_raw(v),
+    v => uint.is_raw(v) ? v : Label.to_raw(v),
+).array().nullable()
+type _Labels_ = TypeReprT<typeof _Labels_>
+
+function _IdMap_<T, Raw>(spec: TypeRepr<T, Raw>) {
+    return TypeRepr.Map(id, spec)
+}
 
 
 // ------ User Data Types ------ //
@@ -126,96 +96,96 @@ export type EventTime = Sum<{
         n_repeats: uint | null,
     },
 }>
-export const ty_EventTime: Ty<EventTime, Simple> = Simple.sum({
-    Once: Simple.obj({
-        at: ty_Timerange,
+export const EventTime: Ty<EventTime> = sum({
+    Once: obj({
+        at: Timerange.type,
     }),
-    SimpleRepeat: Simple.obj({
-        at: Simple.array(ty_Timerange),
-        stride: Simple.uint,
-        n_repeats: Simple.nullable(Simple.uint),
+    SimpleRepeat: obj({
+        at: Timerange.type.array(),
+        stride: uint,
+        n_repeats: uint.nullable(),
     }),
 })
 
 export interface EventOverrides {
-    affect_index: index,
+    affect_index: uint,
     affect_after: boolean,
 
     name: string | null,
     description: string | null,
-    host: (index | Label)[] | null,
-    location: (index | Label)[] | null,
-    tags: (index | Label)[] | null,
+    host: _Labels_,
+    location: _Labels_,
+    tags: _Labels_,
 }
-export const ty_EventOverrides: Ty<EventOverrides, Simple> = Simple.obj({
-    affect_index: ty_index,
-    affect_after: Simple.bool,
+export const EventOverrides: Ty<EventOverrides> = obj({
+    affect_index: uint,
+    affect_after: bool,
 
-    name: Simple.nullable(Simple.string),
-    description: Simple.nullable(Simple.string),
-    host: Simple.nullable(Simple.array(Simple.union(ty_index, ty_Label))),
-    location: Simple.nullable(Simple.array(Simple.union(ty_index, ty_Label))),
-    tags: Simple.nullable(Simple.array(Simple.union(ty_index, ty_Label))),
+    name: str.nullable(),
+    description: str.nullable(),
+    host: _Labels_,
+    location: _Labels_,
+    tags: _Labels_,
 })
 
 export interface Event {
-    id: EventId,
+    id: id,
 
     name: string,
     description: string,
 
-    host: (index | Label)[],
-    location: (index | Label)[],
-    tags: (index | Label)[],
+    host: _Labels_,
+    location: _Labels_,
+    tags: _Labels_,
 
     time: EventTime,
     overrides: EventOverrides[],
 }
-export const ty_Event: Ty<Event, Simple> = Simple.obj({
-    id: Simple.uint,
+export const Event: Ty<Event> = obj({
+    id,
 
-    name: Simple.string,
-    description: Simple.string,
+    name: str,
+    description: str,
 
-    host: Simple.array(Simple.union(ty_index, ty_Label)),
-    location: Simple.array(Simple.union(ty_index, ty_Label)),
-    tags: Simple.array(Simple.union(ty_index, ty_Label)),
+    host: _Labels_,
+    location: _Labels_,
+    tags: _Labels_,
 
-    time: ty_EventTime,
-    overrides: Simple.array(ty_EventOverrides),
+    time: EventTime,
+    overrides: EventOverrides.array(),
 })
 
 export interface Group {
-    id: GroupId,
+    id: id,
 
     name: string,
-    owner: UserId,
+    owner: id,
 
-    events: Map<EventId, Event>,
+    events: Map<id, Event>,
 
     hosts: Label[],
     locations: Label[],
     tags: Label[],
 }
-export const ty_Group: Ty<Group, Simple> = Simple.obj({
-    id: Simple.uint,
+export const Group: Ty<Group> = obj({
+    id,
 
-    name: Simple.string,
-    owner: Simple.uint,
+    name: str,
+    owner: uint,
 
-    events: Simple.Map(Simple.uint, ty_Event),
+    events: _IdMap_(Event),
 
-    hosts: Simple.array(ty_Label),
-    locations: Simple.array(ty_Label),
-    tags: Simple.array(ty_Label),
+    hosts: Label.array(),
+    locations: Label.array(),
+    tags: Label.array(),
 })
 
 export interface EventUser {
     // each index switches whether the user intends to go to the event, defaulting to yes
-    skips: index[] | null,
+    skips: uint[] | null,
 }
-export const ty_EventUser: Ty<EventUser, Simple> = Simple.obj({
-    skips: Simple.nullable(Simple.array(ty_index)),
+export const EventUser: Ty<EventUser> = obj({
+    skips: uint.array().nullable(),
 })
 
 export interface GroupUser {
@@ -225,43 +195,40 @@ export interface GroupUser {
         users_see: boolean,
         users_edit: boolean,
     },
-    participation: Map<EventId, EventUser>,
+    participation: Map<id, EventUser>,
 }
-export const ty_GroupUser: Ty<GroupUser, Simple> = Simple.obj({
-    permissions: Simple.obj({
-        events_edit: Simple.bool,
-        group_edit: Simple.bool,
-        users_see: Simple.bool,
-        users_edit: Simple.bool,
+export const GroupUser: Ty<GroupUser> = obj({
+    permissions: obj({
+        events_edit: bool,
+        group_edit: bool,
+        users_see: bool,
+        users_edit: bool,
     }),
-    participation: Simple.Map(Simple.uint, ty_EventUser),
+    participation: _IdMap_(EventUser),
 })
 
 
 export interface User {
-    id: UserId,
+    id: id,
 
     name: string,
 
-    self_group_id: GroupId,
-    groups: Map<GroupId, GroupUser>,
+    self_group_id: id,
+    groups: Map<id, GroupUser>,
 }
-export const ty_User: Ty<User, Simple> = Simple.obj({
-    id: Simple.uint,
+export const User: Ty<User> = obj({
+    id,
 
-    name: Simple.string,
+    name: str,
 
-    self_group_id: Simple.uint,
-    groups: Simple.Map(Simple.uint, ty_GroupUser),
+    self_group_id: uint,
+    groups: _IdMap_(GroupUser),
 })
 
 
-export type Session = null | {
-    user: User,
+export type SessionData = {
+    self_id: id,
 }
-export const ty_Session: Ty<Session, Simple> = Simple.union(
-    Simple.null,
-    Simple.obj({
-        user: ty_User,
-    }),
-)
+export const SessionData: Ty<SessionData> = obj({
+    self_id: id
+})

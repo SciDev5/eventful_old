@@ -1,6 +1,7 @@
-import { Event, EventId, Label } from "@/common/ty_shared";
+import { Event, Label } from "@/common/ty_shared";
+import { id } from "@/common/util/id";
 
-export function make_events(): [Map<EventId, Event>, (event: Event) => void] {
+export function make_events(): [Map<id, Event>, (event: Event) => void] {
     const events = new Map<number, Event>()
     const add_event = (e: Event) => { events.set(e.id, e) }
     return [

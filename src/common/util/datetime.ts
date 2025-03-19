@@ -1,4 +1,4 @@
-import { int, ms_uint, uint } from "../ty_shared"
+import { int, uint } from "../type"
 
 export const MILLISECONDS_PER_HOUR = 1000 * 60 * 60
 export const MILLISECONDS_PER_DAY = MILLISECONDS_PER_HOUR * 24

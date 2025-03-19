@@ -1,6 +1,8 @@
-import { Event, Group, EventId, Timerange, EventTime, Label, index, uint } from "./ty_shared"
+import { Event, Group, Timerange, EventTime, Label } from "./ty_shared"
+import { uint } from "./type"
 import { find_index } from "./util/arr"
 import { day_int, day_to_date, MILLISECONDS_PER_DAY } from "./util/datetime"
+import { id } from "./util/id"
 
 
 function eventtime_in_timerange(event_time: EventTime, timerange: Timerange): boolean {
@@ -19,7 +21,7 @@ export function eventtime_max_extent(event_time: EventTime): Timerange {
     throw new Error("invalid EventTime (should be unreachable)")
 }
 function event_instances_in_timerange(group: Group, event: Event, timerange: Timerange): EventInstance[] {
-    const base_times: [index, Timerange][] = []
+    const base_times: [uint, Timerange][] = []
     if ("Once" in event.time) {
         base_times.push([0, event.time.Once.at] satisfies [number, Timerange])
     }
@@ -64,9 +66,9 @@ function event_instances_in_timerange(group: Group, event: Event, timerange: Tim
 
         name: event.name,
         description: event.description,
-        host: event.host.map(reify_label_map(group.hosts)),
-        location: event.location.map(reify_label_map(group.locations)),
-        tags: event.tags.map(reify_label_map(group.tags)),
+        host: event.host?.map(reify_label_map(group.hosts)) ?? [],
+        location: event.location?.map(reify_label_map(group.locations)) ?? [],
+        tags: event.tags?.map(reify_label_map(group.tags)) ?? [],
 
         time,
     }))
@@ -74,7 +76,7 @@ function event_instances_in_timerange(group: Group, event: Event, timerange: Tim
 
 export interface EventInstance {
     event: Event,
-    id: EventId,
+    id: id,
     group: Group,
     name: string,
     description: string,

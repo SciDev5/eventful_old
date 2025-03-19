@@ -1,4 +1,4 @@
-import { uint } from "../ty_shared"
+import { uint } from "../type"
 import { None, Option } from "./functional"
 
 export function swap<T>(arr: T[], i: number, j: number) {

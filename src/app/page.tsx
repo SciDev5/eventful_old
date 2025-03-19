@@ -6,13 +6,15 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { EventViewer, EventViewerDataMissing } from "@/components/events/EventViewer";
 import { useSearchParams } from "next/navigation";
 import { CalendarDays } from "@/components/events/Calendar";
-import { Event, Group, GroupId, Timerange, User } from "@/common/ty_shared";
+import { Event, Group, Timerange, User } from "@/common/ty_shared";
 import { make_group_parts } from "@/data/schemas/group_maker";
-import { Color } from "@/common/util/color";
+import { Color } from "@/common/util/Color";
 import { useSettings } from "@/components/settings/settings";
 import { date_to_day } from "@/common/util/datetime";
 import { EventSelection } from "@/components/events/EventSelection";
 import { getdata_by_id } from "@/data/fetcher";
+import { id } from "@/common/util/id";
+import { auth_sess_begin_password } from "@/server/auth";
 
 
 const data_user: User = {
@@ -23,7 +25,7 @@ const data_user: User = {
     ]),
 }
 const OFF = 60
-const data_groups = new Map<GroupId, Group>([
+const data_groups = new Map<id, Group>([
     [0x9000beef, {
         id: 0,
 
@@ -70,6 +72,9 @@ const data_groups = new Map<GroupId, Group>([
 export default function Home() {
     return (
         <Suspense fallback={<HomeFallback />}>
+            <button onClick={async () => {
+                console.log(await auth_sess_begin_password("hello", "world"))
+            }} >test</button>
             <TEST />
             {/*<HomeLoaded />*/}
         </Suspense>

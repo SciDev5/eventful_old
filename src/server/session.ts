@@ -1,13 +1,13 @@
-import { ID } from "@/common/ty_shared"
-import { sample_uniform } from "@/common/util/rng"
+import { SessionData } from "@/common/ty_shared"
+import { id } from "@/common/util/id"
+import { int_lt, sample_uniform } from "@/common/util/rng"
 import { ReadonlyRequestCookies } from "next/dist/server/web/spec-extension/adapters/request-cookies"
 import { cookies } from "next/headers"
 
 
 type SessionId = string
 
-const SESSION_ID_LETTERS = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890_-".split("")
-const SESSION_ID_LENGTH = Math.ceil(1024 * 8 / 3)
+const SESSION_ID_BITS = 512
 const SESSION_COOKIE_NAME = "sess"
 
 
@@ -19,9 +19,6 @@ export interface SessionConfig {
 }
 
 
-export interface SessionData {
-    user_id: ID,
-}
 export interface SessionMeta {
     id: string,
     expires: number,
@@ -42,10 +39,10 @@ class SessionStore {
     }
 
     static gen_session_id() {
-        return new Array(SESSION_ID_LENGTH)
+        return btoa(new Array(SESSION_ID_BITS / 8)
             .fill(0)
-            .map(sample_uniform.bind(null, SESSION_ID_LETTERS))
-            .join("")
+            .map(() => String.fromCharCode(int_lt(256)))
+            .join(""))
     }
 
     private begin_internal(data: SessionData, config?: Partial<SessionConfig>): [SessionId, Session] {
@@ -76,7 +73,7 @@ class SessionStore {
 
     begin(cookies: ReadonlyRequestCookies, data: SessionData, config?: Partial<SessionConfig>) {
         const [id, { expires }] = this.begin_internal(data, config)
-        cookies.set(SESSION_COOKIE_NAME, id, { secure: true, expires })
+        cookies.set(SESSION_COOKIE_NAME, id, { secure: true, expires, httpOnly: true })
     }
     get(cookies: ReadonlyRequestCookies): Session | null {
         const cookie = cookies.get(SESSION_COOKIE_NAME)

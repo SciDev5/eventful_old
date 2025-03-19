@@ -4,7 +4,7 @@ import styles from "./FilterBar.module.css"
 import { css_vars } from "@/util/css"
 import { EventInstance } from "@/common/event_management"
 import { Group, Label } from "@/common/ty_shared"
-import { Color } from "@/common/util/color"
+import { Color } from "@/common/util/Color"
 
 export type EventFilter = (event: EventInstance) => boolean
 

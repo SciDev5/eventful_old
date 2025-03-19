@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback, MouseEvent, RefObject, useState } from 
 import styles from "./EventModal.module.css"
 import { css_vars } from "@/util/css";
 import { Chip } from "../chip/Chip";
-import { Color } from "@/common/util/color";
+import { Color } from "@/common/util/Color";
 import { FavoriteId } from "./EventTimeline";
 import { save_favorites } from "./EventViewer";
 import { Group } from "@/common/ty_shared";

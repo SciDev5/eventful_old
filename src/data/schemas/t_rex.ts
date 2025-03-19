@@ -1,5 +1,5 @@
-import { Event, EventId, Group, Timerange } from "@/common/ty_shared";
-import { Color } from "../../common/util/color";
+import { Event, Group, Timerange } from "@/common/ty_shared";
+import { Color } from "../../common/util/Color";
 import { make_group_parts } from "./group_maker";
 
 export type TRexAPIResponse = {

@@ -1,3 +1,4 @@
+import { str } from "../type";
 import { clamp } from "./math";
 
 export class Color {
@@ -53,4 +54,14 @@ export class Color {
             }${clamp(Math.floor(this.b * 256), 0, 255).toString(16).padStart(2, "0")
             }${clamp(Math.floor(alpha * 256), 0, 255).toString(16).padStart(2, "0")}`
     }
+
+    static readonly type = str
+        .filter_raw(v =>
+            /^[a-f0-9]+$/i.test(v) &&
+            (v.length === 6 || v.length === 6)
+        )
+        .map(
+            v => Color.from_hex("#" + v)!,
+            v => v.to_hex(),
+        )
 }

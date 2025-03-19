@@ -5,7 +5,7 @@ import styles from "./EventTimeline.module.css";
 import { css_vars } from "@/util/css";
 import { swap } from "@/common/util/arr";
 import { Chip } from "../chip/Chip";
-import { Color } from "@/common/util/color";
+import { Color } from "@/common/util/Color";
 import { EventModal, EventModalShower } from "./EventModal";
 import { Group, Label, Timerange } from "@/common/ty_shared";
 import { useChangedValue } from "@/util/use";
