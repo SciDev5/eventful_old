@@ -27,6 +27,7 @@
       ]
     },
     "downlevelIteration": true,
+    "experimentalDecorators": true,
   },
   "include": [
     "next-env.d.ts",

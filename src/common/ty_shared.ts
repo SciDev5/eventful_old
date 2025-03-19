@@ -239,12 +239,16 @@ export const ty_GroupUser: Ty<GroupUser, Simple> = Simple.obj({
 
 
 export interface User {
+    id: UserId,
+
     name: string,
 
     self_group_id: GroupId,
     groups: Map<GroupId, GroupUser>,
 }
 export const ty_User: Ty<User, Simple> = Simple.obj({
+    id: Simple.uint,
+
     name: Simple.string,
 
     self_group_id: Simple.uint,
