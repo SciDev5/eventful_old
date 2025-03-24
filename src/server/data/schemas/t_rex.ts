@@ -1,6 +1,7 @@
 import { Event, Group, Timerange } from "@/common/ty_shared";
-import { Color } from "../../common/util/Color";
+import { Color } from "../../../common/util/Color";
 import { make_group_parts } from "./group_maker";
+import { id } from "@/common/util/id";
 
 export type TRexAPIResponse = {
     /** The title of the current experience, such as "REX 2023" */
@@ -33,11 +34,11 @@ export type TRexEvent = {
     tags: string[];
 };
 
-export async function fetch_trex(): Promise<TRexAPIResponse> {
+async function fetch_trex(): Promise<TRexAPIResponse> {
     return (await (await fetch("https://rex.mit.edu/api.json")).json()) as TRexAPIResponse
 }
 
-export function trex_to_schedule(id: string, trex: TRexAPIResponse): Group {
+function trex_to_schedule(id: id, trex: TRexAPIResponse): Group {
     const { events, add_event, get_host, get_location, get_tag, hosts, locations, tags } = make_group_parts()
 
 
@@ -63,12 +64,15 @@ export function trex_to_schedule(id: string, trex: TRexAPIResponse): Group {
     }).forEach(add_event)
 
     return {
-        id: 0,
-        owner: 0,
+        id,
         name: trex.name,
         events,
         hosts,
         locations,
         tags,
     }
+}
+
+export async function fetch_convert_trex(id: id) {
+    return fetch_trex().then(trex => trex_to_schedule(id, trex))
 }

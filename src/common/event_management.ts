@@ -54,7 +54,7 @@ function event_instances_in_timerange(group: Group, event: Event, timerange: Tim
 
     //     }
     // })
-    console.log(base_times);
+    // console.log(base_times);
 
     const reify_label_map = (lut: Label[]) => (label_or_id: Label | uint) => typeof label_or_id === "number" ? lut[label_or_id] : label_or_id
 
@@ -111,13 +111,13 @@ export class Eventslist {
     starts_or_ends_during_day(day: day_int): EventInstance[] {
         const t_start = day_to_date(day).getTime()
 
-        console.log(
-            "!!",
-            this.sorted_by_start,
-            this.sorted_by_end,
-            find_index(this.sorted_by_start, t_start, v => v.time.start_ms),
-            find_index(this.sorted_by_start, t_start + MILLISECONDS_PER_DAY, v => v.time.start_ms),
-        );
+        // console.log(
+        //     "!!",
+        //     this.sorted_by_start,
+        //     this.sorted_by_end,
+        //     find_index(this.sorted_by_start, t_start, v => v.time.start_ms),
+        //     find_index(this.sorted_by_start, t_start + MILLISECONDS_PER_DAY, v => v.time.start_ms),
+        // );
 
         return [
             ...this.sorted_by_start.slice(

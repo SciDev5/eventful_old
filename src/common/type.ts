@@ -17,9 +17,7 @@ export function is_literally<T>(lit: T): (v: any) => v is T {
     return (v): v is T => v === lit
 }
 
-
-
-type TypeReprRaw<H> = H extends TypeRepr<infer _, infer R> ? R : never
+export type TypeReprRaw<H> = H extends TypeRepr<infer _, infer R> ? R : never
 export type TypeReprT<H> = H extends TypeRepr<infer L, infer _> ? L : never
 export type Ty<L, Repr = null> = Repr extends TypeRepr<L, infer R> ? TypeRepr<L, R> : Repr extends TypeRepr<any, any> ? never : TypeRepr<L, any>
 export class TypeRepr<T, Raw> {
@@ -49,9 +47,15 @@ export class TypeRepr<T, Raw> {
         spec: T,
     ): TypeRepr<{ [k in keyof T]: { [v in k]: TypeReprT<T[k]> } }[keyof T], { [k in keyof T]: { [v in k]: TypeReprRaw<T[k]> } }[keyof T]> {
         return new TypeRepr(
-            v => spec[Object.keys(v)[0]].from_raw(Object.values(v)[0]),
-            v => spec[Object.keys(v)[0]].to_raw(Object.values(v)[0]),
-            ((v: any) => spec[Object.keys(v)[0]].is_raw(Object.values(v)[0])) as any,
+            v => {
+                const k = Object.keys(v)[0]
+                return { [k]: spec[k].from_raw(Object.values(v)[0]) } as { [k in keyof T]: { [v in k]: TypeReprT<T[k]> } }[keyof T]
+            },
+            v => {
+                const k = Object.keys(v)[0]
+                return { [k]: spec[k].to_raw(Object.values(v)[0]) } as { [k in keyof T]: { [v in k]: TypeReprRaw<T[k]> } }[keyof T]
+            },
+            ((v: any) => typeof v === "object" && v !== null && spec[Object.keys(v)[0]].is_raw(Object.values(v)[0])) as any,
         )
     }
     static ts_enum<T extends Record<str | int, int | str>>(spec: T) {
@@ -175,7 +179,7 @@ export type i32 = TypeReprT<typeof i32>
 export const u32 = TypeRepr.identity_is(v => is_number(v, { int: true, gte: 0, lt: 0x1_0000_0000 }))
 export type u32 = TypeReprT<typeof u32>
 
-export const int = TypeRepr.identity_is(v => is_number(v, { int: true, gte: -Number.MIN_SAFE_INTEGER, lt: Number.MAX_SAFE_INTEGER }))
+export const int = TypeRepr.identity_is(v => is_number(v, { int: true, gte: Number.MIN_SAFE_INTEGER, lt: Number.MAX_SAFE_INTEGER }))
 export type int = TypeReprT<typeof int>
 
 export const uint = TypeRepr.identity_is(v => is_number(v, { int: true, gte: 0 }))

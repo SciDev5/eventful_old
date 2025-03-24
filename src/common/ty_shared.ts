@@ -1,4 +1,4 @@
-import { bool, date, int, obj, or, raw, str, sum, Ty, TypeRepr, TypeReprT, u32, uint } from "./type";
+import { bool, date, int, obj, or, raw, str, sum, Ty, TypeRepr, TypeReprRaw, TypeReprT, u32, uint } from "./type";
 import { Color } from "./util/Color";
 import { Sum } from "./util/functional";
 import { id } from "./util/id";
@@ -96,7 +96,7 @@ export type EventTime = Sum<{
         n_repeats: uint | null,
     },
 }>
-export const EventTime: Ty<EventTime> = sum({
+const _EventTime_ = sum({
     Once: obj({
         at: Timerange.type,
     }),
@@ -105,7 +105,8 @@ export const EventTime: Ty<EventTime> = sum({
         stride: uint,
         n_repeats: uint.nullable(),
     }),
-})
+}) satisfies Ty<EventTime>
+export const EventTime: Ty<EventTime, typeof _EventTime_> = _EventTime_
 
 export interface EventOverrides {
     affect_index: uint,
@@ -117,7 +118,7 @@ export interface EventOverrides {
     location: _Labels_,
     tags: _Labels_,
 }
-export const EventOverrides: Ty<EventOverrides> = obj({
+const _EventOverrides_ = obj({
     affect_index: uint,
     affect_after: bool,
 
@@ -126,7 +127,8 @@ export const EventOverrides: Ty<EventOverrides> = obj({
     host: _Labels_,
     location: _Labels_,
     tags: _Labels_,
-})
+}) satisfies Ty<EventOverrides>
+export const EventOverrides: Ty<EventOverrides, typeof _EventOverrides_> = _EventOverrides_
 
 export interface Event {
     id: id,
@@ -141,7 +143,7 @@ export interface Event {
     time: EventTime,
     overrides: EventOverrides[],
 }
-export const Event: Ty<Event> = obj({
+const _Event_ = obj({
     id,
 
     name: str,
@@ -153,13 +155,13 @@ export const Event: Ty<Event> = obj({
 
     time: EventTime,
     overrides: EventOverrides.array(),
-})
+}) satisfies Ty<Event>
+export const Event: Ty<Event, typeof _Event_> = _Event_
 
 export interface Group {
     id: id,
 
     name: string,
-    owner: id,
 
     events: Map<id, Event>,
 
@@ -167,68 +169,44 @@ export interface Group {
     locations: Label[],
     tags: Label[],
 }
-export const Group: Ty<Group> = obj({
+const _Group_ = obj({
     id,
 
     name: str,
-    owner: uint,
 
     events: _IdMap_(Event),
 
     hosts: Label.array(),
     locations: Label.array(),
     tags: Label.array(),
-})
+}) satisfies Ty<Group>
+export const Group: Ty<Group, typeof _Group_> = _Group_
+export type GroupRaw = TypeReprRaw<typeof Group>
 
-export interface EventUser {
-    // each index switches whether the user intends to go to the event, defaulting to yes
-    skips: uint[] | null,
-}
-export const EventUser: Ty<EventUser> = obj({
-    skips: uint.array().nullable(),
-})
-
-export interface GroupUser {
-    permissions: {
-        events_edit: boolean,
-        group_edit: boolean,
-        users_see: boolean,
-        users_edit: boolean,
-    },
-    participation: Map<id, EventUser>,
-}
-export const GroupUser: Ty<GroupUser> = obj({
-    permissions: obj({
-        events_edit: bool,
-        group_edit: bool,
-        users_see: bool,
-        users_edit: bool,
-    }),
-    participation: _IdMap_(EventUser),
-})
-
-
-export interface User {
-    id: id,
-
+export interface Profile {
     name: string,
 
-    self_group_id: id,
-    groups: Map<id, GroupUser>,
+    join_groups: Map<id, { // TODO: replace with tagging system
+        join_events: id[],
+    }>
 }
-export const User: Ty<User> = obj({
-    id,
-
+const _Profile_ = obj({
     name: str,
-
-    self_group_id: uint,
-    groups: _IdMap_(GroupUser),
-})
+    join_groups: _IdMap_(obj({
+        join_events: id.array(),
+    }))
+}) satisfies Ty<Profile>
+export const Profile: Ty<Profile, typeof _Profile_> = _Profile_
+export type ProfileRaw = TypeReprRaw<typeof Profile>
 
 
 export type SessionData = {
     self_id: id,
+    name: str,
 }
-export const SessionData: Ty<SessionData> = obj({
-    self_id: id
-})
+const _SessionData_ = obj({
+    self_id: id,
+    name: str,
+}) satisfies Ty<SessionData>
+export const SessionData: Ty<SessionData, typeof _SessionData_> = _SessionData_
+export type SessionDataRaw = TypeReprRaw<typeof SessionData>

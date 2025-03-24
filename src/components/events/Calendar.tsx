@@ -4,13 +4,14 @@ import { useCallback, useMemo } from "react"
 import styles from "./Calendar.module.css"
 import { range_to_arr } from "@/common/util/arr"
 import { date_to_day, day_int, day_to_date, day_weekday, MILLISECONDS_PER_DAY, MILLISECONDS_PER_HOUR, month_int, month_length, month_start_weekday } from "@/common/util/datetime"
-import { Group, ms_int, Timerange, uint } from "@/common/ty_shared"
+import { Group, ms_int, Timerange } from "@/common/ty_shared"
 import { useSettings } from "../settings/settings"
 import { css_vars } from "@/util/css"
 import { EventInstance, Eventslist } from "@/common/event_management"
 import { useChangedValue, useMappedSet } from "@/util/use"
 import { EventFilter } from "../filter/FilterBar"
 import { assemble_tracks, EventSelection, useEventsDuringDay } from "./EventSelection"
+import { uint } from "@/common/type"
 
 export function CalendarMonth({
     start,
@@ -89,7 +90,7 @@ export function CalendarDays({
     sel: EventSelection,
 }) {
     const day_events = useEventsDuringDay(sel)
-    console.log(day_events);
+    // console.log(day_events);
 
 
     const today = date_to_day(new Date())

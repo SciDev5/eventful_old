@@ -2,9 +2,10 @@
 
 import { str } from "@/common/type"
 import { compare } from "bcrypt"
-import { get_user_by_handle } from "./db"
+import { get_user_by_handle } from "../data/db"
 import { session_store } from "./session"
 import { cookies } from "next/headers"
+import { SessionData, SessionDataRaw } from "@/common/ty_shared"
 
 export async function auth_sess_begin_noauth(handle_: string): Promise<boolean> {
     const handle = str.try_from(handle_)
@@ -14,10 +15,8 @@ export async function auth_sess_begin_noauth(handle_: string): Promise<boolean> 
     if (!user) { return false }
     if (user.passhash || user.kerb) { return false }
 
-    session_store.begin(cookies(), { self_id: user.id })
-
+    session_store.begin(cookies(), { self_id: user.id, name: user.name })
     return true
-
 }
 export async function auth_sess_begin_password(handle_: string, password_: string): Promise<boolean> {
     const handle = str.try_from(handle_)
@@ -30,7 +29,15 @@ export async function auth_sess_begin_password(handle_: string, password_: strin
 
     if (!await compare(password, user.passhash)) { return false }
 
-    session_store.begin(cookies(), { self_id: user.id })
-
+    session_store.begin(cookies(), { self_id: user.id, name: user.name })
     return true
+}
+export async function auth_sess_end() {
+    session_store.end(cookies())
+}
+export async function auth_sess_get(): Promise<SessionDataRaw | null> {
+    const sess = session_store.get(cookies())
+    if (sess == null) { return null }
+    const { self_id, name } = sess
+    return { self_id, name }
 }

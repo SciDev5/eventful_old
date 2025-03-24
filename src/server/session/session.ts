@@ -1,8 +1,6 @@
 import { SessionData } from "@/common/ty_shared"
-import { id } from "@/common/util/id"
-import { int_lt, sample_uniform } from "@/common/util/rng"
+import { int_lt } from "@/common/util/rng"
 import { ReadonlyRequestCookies } from "next/dist/server/web/spec-extension/adapters/request-cookies"
-import { cookies } from "next/headers"
 
 
 type SessionId = string
@@ -71,23 +69,23 @@ class SessionStore {
         return sess
     }
 
-    begin(cookies: ReadonlyRequestCookies, data: SessionData, config?: Partial<SessionConfig>) {
+    begin(current_cookies: ReadonlyRequestCookies, data: SessionData, config?: Partial<SessionConfig>) {
         const [id, { expires }] = this.begin_internal(data, config)
-        cookies.set(SESSION_COOKIE_NAME, id, { secure: true, expires, httpOnly: true })
+        current_cookies.set(SESSION_COOKIE_NAME, id, { secure: true, expires, httpOnly: true })
     }
-    get(cookies: ReadonlyRequestCookies): Session | null {
-        const cookie = cookies.get(SESSION_COOKIE_NAME)
+    get(current_cookies: ReadonlyRequestCookies): Session | null {
+        const cookie = current_cookies.get(SESSION_COOKIE_NAME)
         if (cookie == null) {
             return null
         }
         return this.get_internal(cookie.value)
     }
-    end(cookies: ReadonlyRequestCookies) {
-        const cookie = cookies.get(SESSION_COOKIE_NAME)
+    end(current_cookies: ReadonlyRequestCookies) {
+        const cookie = current_cookies.get(SESSION_COOKIE_NAME)
         if (cookie != null) {
             this.sessions.delete(cookie.value)
         }
-        cookies.delete(SESSION_COOKIE_NAME)
+        current_cookies.delete(SESSION_COOKIE_NAME)
     }
 }
 
