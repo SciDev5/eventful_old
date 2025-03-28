@@ -1,7 +1,6 @@
 "use client"
 
 import styles from "./page.module.css";
-import { useAwait } from "@/util/use";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { EventViewer, EventViewerDataMissing } from "@/components/events/EventViewer";
 import { useSearchParams } from "next/navigation";
@@ -13,25 +12,21 @@ import { useSettings } from "@/components/settings/settings";
 import { date_to_day, day_weekday } from "@/common/util/datetime";
 import { EventSelection } from "@/components/events/EventSelection";
 import { id } from "@/common/util/id";
-import { auth_sess_begin_password } from "@/server/session/actions";
 import { GroupsRefresh, LoginButton, ProfileSelector, useGroups, UserDataProvider } from "@/components/user/userdata";
-
-
-// const data_user: SelfUser = {
-//     name: "the_user_lol",
-//     self_group_id: 0x9000beef,
-//     groups: new Map([
-
-//     ]),
-// }
+import { OwnedGroups } from "@/components/user/usergroups";
+import { AnyCalendar } from "@/components/events/AnyCalendar";
 
 export default function Home() {
+    const [en, set_en] = useState(true)
+
     return (
         <Suspense fallback={<HomeFallback />}>
             <UserDataProvider>
                 <LoginButton />
                 <ProfileSelector />
                 <GroupsRefresh />
+                <input type="checkbox" checked={en} onChange={e => set_en(e.currentTarget.checked)} />
+                {en && <OwnedGroups />}
                 <TEST />
                 {/*<HomeLoaded />*/}
             </UserDataProvider>
@@ -44,25 +39,18 @@ function TEST() {
     const groups_map = useGroups()
     const groups = useMemo(() => new Set(groups_map.values()), [groups_map])
 
+    const { zero_weekday } = useSettings()
+    const d = date_to_day(new Date())
+
     useEffect(() => {
         set_live(true)
     }, [])
     if (live && groups != null) {
-        return (<TESTCAL groups={groups} />)
+        return (<CalendarDays start={d - day_weekday(d) + zero_weekday} n={7} sel={new EventSelection(groups, () => true, new Timerange(new Date("2022-01-16"), new Date("2028-01-19")))} />)
+        // return (<AnyCalendar groups={groups} />)
     } else {
 
     }
-}
-
-export function TESTCAL({ groups }: { groups: Set<Group> }) {
-    const { zero_weekday } = useSettings()
-    const d = date_to_day(new Date())
-    return (
-        // <CalendarMonth start={2024 * 12 + 9} />
-        <CalendarDays start={d - day_weekday(d) + zero_weekday} n={7} sel={new EventSelection(groups, () => true, new Timerange(new Date("2022-01-16"), new Date("2028-01-19")))} />
-        // <EventViewer groups={groups} />
-        // <CalendarDays start={date_to_day(new Date("2025-01-16"))} n={7} sel={new EventSelection(groups, () => true, new Timerange(new Date("2025-01-16"), new Date("2025-01-19")))} />
-    )
 }
 
 // function HomeLoaded() {

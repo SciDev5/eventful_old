@@ -183,6 +183,37 @@ const _Group_ = obj({
 export const Group: Ty<Group, typeof _Group_> = _Group_
 export type GroupRaw = TypeReprRaw<typeof Group>
 
+export interface GroupDefinition {
+    id: id,
+    name: str,
+    updated: Date,
+    owner: id, // TODO: allow mailing lists to own
+
+    events: Map<id, Event>,
+    hosts: Label[],
+    locations: Label[],
+    tags: Label[],
+
+    /// if nonnull and valid, overrides and overwrites events
+    remote: str | null,
+}
+const _GroupDefinition_ = obj({
+    id,
+    name: str,
+    updated: date,
+    owner: id,
+
+    events: _IdMap_(Event),
+    hosts: Label.array(),
+    locations: Label.array(),
+    tags: Label.array(),
+
+    remote: str.nullable(),
+})
+export const GroupDefinition: Ty<GroupDefinition, typeof _GroupDefinition_> = _GroupDefinition_
+export type GroupDefinitionRaw = TypeReprRaw<typeof GroupDefinition>
+
+
 export interface Profile {
     name: string,
 

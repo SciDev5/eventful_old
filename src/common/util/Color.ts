@@ -58,10 +58,10 @@ export class Color {
     static readonly type = str
         .filter_raw(v =>
             /^[a-f0-9]+$/i.test(v) &&
-            (v.length === 6 || v.length === 6)
+            (v.length === 6 || v.length === 8)
         )
         .map(
             v => Color.from_hex("#" + v)!,
-            v => v.to_hex(),
+            v => v.to_hex().slice(1),
         )
 }

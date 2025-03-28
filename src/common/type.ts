@@ -34,8 +34,8 @@ export class TypeRepr<T, Raw> {
         spec: T,
     ): DictifyTR<T> {
         return new TypeRepr(
-            v => Object.fromEntries(Object.entries(v).map(([k, v]) => [k, spec[k].from_raw(v)])) as any,
-            v => Object.fromEntries(Object.entries(v).map(([k, v]) => [k, spec[k].to_raw(v)])) as any,
+            v => Object.fromEntries(Object.keys(spec).map((k) => [k, spec[k].from_raw(v[k])])) as any,
+            v => Object.fromEntries(Object.keys(spec).map((k) => [k, spec[k].to_raw(v[k])])) as any,
             (v): v is TypeReprRaw<DictifyTR<T>> =>
                 typeof v === "object"
                 && v !== null

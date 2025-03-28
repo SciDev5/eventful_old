@@ -1,0 +1,16 @@
+.main {
+    position: relative;
+    width: calc(min(100vw, 200em));
+    height: 100vh;
+    margin-left: calc(50vw - min(50vw, 100em));
+    border: 1px solid #112;
+}
+
+/* https://stackoverflow.com/questions/30102792/css-media-query-to-target-only-ios-devices */
+@supports (-webkit-touch-callout: none) {
+
+    /* CSS specific to iOS devices */
+    .main:not(.is_embed) {
+        height: calc(100vh - 6.5rem);
+    }
+}

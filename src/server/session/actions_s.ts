@@ -1,29 +1,23 @@
 "use server"
 
-import { str } from "@/common/type"
+import { bool, str } from "@/common/type"
 import { compare } from "bcrypt"
-import { get_user_by_handle } from "../data/db"
 import { session_store } from "./session"
 import { cookies } from "next/headers"
 import { SessionData, SessionDataRaw } from "@/common/ty_shared"
+import { def_action_0_1, def_action_1_1, def_action_2_1 } from "../actions"
+import { db_user_ref_by_handle } from "../data/db"
 
-export async function auth_sess_begin_noauth(handle_: string): Promise<boolean> {
-    const handle = str.try_from(handle_)
-    if (!handle) { return false }
-
-    const user = await get_user_by_handle(handle)
+export const _action_sess_begin_noauth = def_action_1_1(str, bool, async handle => {
+    const user = await db_user_ref_by_handle(handle)
     if (!user) { return false }
     if (user.passhash || user.kerb) { return false }
 
     session_store.begin(cookies(), { self_id: user.id, name: user.name })
     return true
-}
-export async function auth_sess_begin_password(handle_: string, password_: string): Promise<boolean> {
-    const handle = str.try_from(handle_)
-    const password = str.try_from(password_)
-    if (!handle || !password) { return false }
-
-    const user = await get_user_by_handle(handle)
+})
+export const _action_sess_begin_password = def_action_2_1(str, str, bool, async (handle, password) => {
+    const user = await db_user_ref_by_handle(handle)
     if (!user) { return false }
     if (!user.passhash) { return false }
 
@@ -31,13 +25,13 @@ export async function auth_sess_begin_password(handle_: string, password_: strin
 
     session_store.begin(cookies(), { self_id: user.id, name: user.name })
     return true
-}
-export async function auth_sess_end() {
+})
+export const _action_sess_end = async () => {
     session_store.end(cookies())
 }
-export async function auth_sess_get(): Promise<SessionDataRaw | null> {
+export const _action_sess_get = def_action_0_1(SessionData, async () => {
     const sess = session_store.get(cookies())
     if (sess == null) { return null }
     const { self_id, name } = sess
     return { self_id, name }
-}
+})
